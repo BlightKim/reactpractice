@@ -1,101 +1,128 @@
 import './App.css';
-import Header from "./component/Header";
-import TodoEditor from "./component/TodoEditor";
-import TodoList from "./component/TodoList";
-import React, {useCallback, useReducer, useRef} from "react";
+import Home from "./pages/Home";
+import New from "./pages/New";
+import Diary from "./pages/Diary";
+import Edit from "./pages/Edit";
+import {Route, Routes} from "react-router-dom";
+import React, {useEffect, useReducer, useRef, useState} from "react";
 
-
-const mockTodo = [
-    {
-        id: 0,
-        isDone: false,
-        content: "React 공부하기",
-        createdDate: new Date().getTime(),
-    },
-    {
-        id: 1,
-        isDone: false,
-        content: "빨래 널기",
-        createdDate: new Date().getTime(),
-    },
-    {
-        id: 2,
-        isDone: false,
-        content: "노래 연습하기",
-        createdDate: new Date().getTime(),
-    },
-]
-
+export const DiaryStateContext = React.createContext();
+export const DiaryDispatchContext = React.createContext();
 function reducer(state, action) {
     switch (action.type) {
+        case "INIT": {
+            return action.data;
+        }
+
         case "CREATE": {
-            return [action.newItem, ...state];
+            return [action.data, ...state];
         }
 
         case "UPDATE": {
             return state.map((it) =>
-                it.id === action.targetId ? {...it, isDone: !it.isDone,} : it
+                String(it.id) === String(action.data.id) ? {...action.data} : it
             );
         }
 
         case "DELETE": {
-            return state.filter((it) => it.id !== action.targetId);
+            return state.filter((it) => String(it.id) !== String(action.targetId));
         }
 
-        default:
+        default: {
             return state;
+        }
     }
+    return state;
 }
 
-export const TodoStateContext = React.createContext();
-export const TodoDispatchContext = React.createContext();
+const mockData = [
+    {
+        id: "mock1",
+        date: new Date().getTime() - 1,
+        content: "mock1",
+        emotionId: 1,
+    },
+    {
+        id: "mock2",
+        date: new Date().getTime() - 2,
+        content: "mock2",
+        emotionId: 2,
+    },
+    {
+        id: "mock3",
+        date: new Date().getTime() - 3,
+        content: "mock3",
+        emotionId: 3,
+    },
+];
 
 function App() {
-    const [todo, dispatch] = useReducer(reducer, mockTodo);
-    const idRef = useRef(3);
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
+    const [data, dispatch] = useReducer(reducer, []);
+    const idRef = useRef(0);
 
-    const onCreate = (content) => {
+    useEffect(() => {
+        dispatch({
+            type: "INIT",
+            data: mockData,
+        });
+        setIsDataLoaded(true);
+    }, []);
+
+    const onCreate = (date, content, emotionId) => {
         dispatch({
             type: "CREATE",
-            newItem: {
+            data: {
                 id: idRef.current,
+                date: new Date(date).getTime(),
                 content,
-                isDone: false,
-                createdDate: new Date().getTime(),
+                emotionId,
             },
         });
         idRef.current += 1;
     };
 
-    const onUpdate = useCallback((targetId) => {
+    const onUpdate = (targetId, date, content, emotionId) => {
         dispatch({
             type: "UPDATE",
-            targetId,
+            data: {
+                id: targetId,
+                date: new Date(date).getTime(),
+                content,
+                emotionId,
+            },
         });
-    }, []);
+    };
 
-    const onDelete = useCallback((targetId) => {
+    const onDelete = (targetId) => {
         dispatch({
             type: "DELETE",
             targetId,
         });
-    }, []);
+    };
 
-    const memoizedDispatches = useMemo(() => {
-       return {onCreate, onUpdate, onDelete}
-    }, []);
-    return (
-        <div className="App">
-            <Header/>
-
-            <TodoStateContext.Provider value={todo}>
-                <TodoDispatchContext.Provider value={memoizedDispatches}>
-                    <TodoEditor/>
-                    <TodoList/>
-                </TodoDispatchContext.Provider>
-            </TodoStateContext.Provider>
-        </div>
-    );
+    if (!isDataLoaded) {
+        return <div>데이터를 불러오는 중입니다</div>;
+    } else {
+        return (
+            <DiaryStateContext.Provider value={data}>
+                <DiaryDispatchContext.Provider value={{
+                    onCreate,
+                    onUpdate,
+                    onDelete,
+                }}>
+                    <div className="App">
+                        <Routes>
+                            <Route path="/" element={<Home/>}/>
+                            <Route path="/new" element={<New/>}/>
+                            <Route path="/diary/:id" element={<Diary/>}/>
+                            <Route path="/edit/:id" element={<Edit/>}/>
+                        </Routes>
+                    </div>
+                </DiaryDispatchContext.Provider>
+            </DiaryStateContext.Provider>
+        );
+    }
 }
 
 export default App;
